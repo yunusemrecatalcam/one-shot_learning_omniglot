@@ -21,11 +21,77 @@ import matplotlib.pyplot as plt
 from sklearn.utils import shuffle
 import matplotlib.pyplot as plt
 
+from PIL import Image
+
+!git clone https://github.com/brendenlake/omniglot.git
+!unzip -q omniglot/python/images_background.zip 
+
+train_x = np.zeros((19280,105,105))
+print(train_x.shape)
+train_y = np.zeros((19280))
+
+print(train_x.shape)
+
+i=0
+arc = os.path.join("images_background")
+for alphabet in os.listdir(arc):
+    for characters in os.listdir(os.path.join(arc,alphabet)):
+        for sub in os.listdir(os.path.join(arc,alphabet,characters)):
+            path = os.path.join(arc,alphabet,characters,sub)
+            img = Image.open(path)
+            train_x[i,:,:] = np.asarray(img.getdata()).reshape(img.size)
+            train_y[i] = int(path[path.find('.png')-7:path.find('.png')-3])
+            #print(train_y[i])
+            i += 1
+
+def generate_trainset(train_x,train_y, size):
+  
+  pairs = [np.zeros((size,105,105,1)) for i in range(2)]
+  targets = np.zeros((size))
+  
+  #print("pairs",np.asarray(pairs).shape,"targets",np.asarray(targets).shape)
+  train_y_structured = train_y.reshape(-1,20)
+  train_x_structured = train_x.reshape(-1,20,105,105)
+  #print("structured x,",train_x_structured.shape)
+  #print("structured y,",train_y_structured.shape)
+  randed = rng.choice(train_y_structured.shape[0],size,replace=False)
+  #print("trainx",train_x_structured[randed].shape,train_x_structured.shape)
+  
+  left = train_x_structured[0,0,:,:]
+  right= train_x_structured[0,0,:,:]
+  for i in range(0,size):
+    if i%2 == 1:                        #getting a same char example
+      class_of_char = rng.randint(963)
+      #print("class same:",class_of_char)
+      left =train_x_structured[class_of_char,rng.randint(19),:,:]
+      right =train_x_structured[class_of_char,rng.randint(19),:,:]
+      pairs[0][i,:,:,:] = left.reshape(105,105,1)
+      pairs[1][i,:,:,:] = right.reshape(105,105,1)
+      targets[i] = 1
+      
+    else:                                 #getting a different char example 
+      indexes = rng.choice(963,size=2,replace=False)
+      #print("two of em",indexes.shape,indexes)
+      left = train_x_structured[indexes[0],rng.randint(19),:,:]
+      right= train_x_structured[indexes[1],rng.randint(19),:,:]
+      pairs[0][i,:,:,:] = left.reshape(105,105,1)
+      pairs[1][i,:,:,:] = right.reshape(105,105,1)
+      targets[i] = 0
+
+  return [pairs,targets]
+
+batch_size = 200
+[mypairs,mytargets] = generate_trainset(train_x,train_y,batch_size)
+myidx = rng.randint(batch_size)
+print(np.asarray(mypairs).shape)
+plt.imshow(np.asarray(mypairs)[:,myidx,:,:].reshape(2*105,105))
+print("target",mytargets[myidx])
+
 def W_init(shape,name=None):
     """Initialize weights as in paper"""
     values = rng.normal(loc=0,scale=1e-2,size=shape)
     return K.variable(values,name=name)
-#//TODO: figure out how to initialize layer biases in keras.
+  
 def b_init(shape,name=None):
     """Initialize bias as in paper"""
     values=rng.normal(loc=0.5,scale=1e-2,size=shape)
@@ -52,92 +118,31 @@ convnet.add(Dense(4096,activation="sigmoid",kernel_regularizer=l2(1e-3),kernel_i
 encoded_l = convnet(left_input)
 encoded_r = convnet(right_input)
 
-!git clone https://github.com/brendenlake/omniglot.git
-!unzip -q omniglot/python/images_background.zip
-
-from PIL import Image
-
-train_x = np.zeros((19280,105,105))
-print(train_x.shape)
-train_y = np.zeros((19280))
-
-print(train_x.shape)
-
-i=0
-arc = os.path.join("images_background")
-for alphabet in os.listdir(arc):
-    for characters in os.listdir(os.path.join(arc,alphabet)):
-        for sub in os.listdir(os.path.join(arc,alphabet,characters)):
-            path = os.path.join(arc,alphabet,characters,sub)
-            img = Image.open(path)
-            train_x[i,:,:] = np.asarray(img.getdata()).reshape(img.size)
-            train_y[i] = int(path[path.find('.png')-7:path.find('.png')-3])
-            #print(train_y[i])
-            i += 1
-
 both = subtract([encoded_l,encoded_r])
 pred = Dense(1,activation='sigmoid',bias_initializer=b_init)(both)
 
 Siamese = Model(input=[left_input,right_input],output=pred)
-Siamese.compile(loss='binary_crossentropy',optimizer=Adam(0.006))
+Siamese.compile(loss='binary_crossentropy',optimizer=Adam(0.00006),metrics=['accuracy'])
+print(mytargets.shape[0])
 
-left, right = 4,500
-out1 =Siamese.predict([train_x[left,:,:].reshape((1,105,105,1)),train_x[right,:,:].reshape((1,105,105,1))])
-print(type(out1))
-print(np.sum(out1))
-print(train_y[left],train_y[right])
+batch_size = 20
+[mypairs,mytargets] = generate_trainset(train_x,train_y,batch_size)
+epochs = 1000
+loss_acc = np.zeros((epochs,2))
+for i in range(epochs):
+  [mypairs,mytargets] = generate_trainset(train_x,train_y,batch_size)
+  loss_acc[i,:] = Siamese.train_on_batch(mypairs,mytargets)
+  #print(loss_acc[i,:])
 
-def generate_trainset(train_x,train_y, size):
-  
-  pairs = [np.zeros((size,105,105)) for i in range(2)]
-  targets = np.zeros((size))
-  
-  print("pairs",np.asarray(pairs).shape,"targets",np.asarray(targets).shape)
-  train_y_structured = train_y.reshape(-1,20)
-  train_x_structured = train_x.reshape(-1,20,105,105)
-  #print("structured x,",train_x_structured.shape)
-  #print("structured y,",train_y_structured.shape)
-  randed = rng.choice(train_y_structured.shape[0],size,replace=False)
-  #print("trainx",train_x_structured[randed].shape,train_x_structured.shape)
-  
-  left = train_x_structured[0,0,:,:]
-  right= train_x_structured[0,0,:,:]
-  for i in range(0,size):
-    if i < size//2:                        #getting a same char example
-      class_of_char = rng.randint(963)
-      #print("class same:",class_of_char)
-      left =train_x_structured[class_of_char,rng.randint(19),:,:]
-      right =train_x_structured[class_of_char,rng.randint(19),:,:]
-      pairs[0][i,:,:] = left.reshape(105,105)
-      pairs[1][i,:,:] = right.reshape(105,105)
-      targets[i] = 1
-      
-    else:                                 #getting a different char example 
-      indexes = rng.choice(963,size=2,replace=False)
-      #print("two of em",indexes.shape,indexes)
-      left = train_x_structured[indexes[0],rng.randint(19),:,:]
-      right= train_x_structured[indexes[1],rng.randint(19),:,:]
-      pairs[0][i,:,:] = left.reshape(105,105)
-      pairs[1][i,:,:] = right.reshape(105,105)
-      targets[i] = 0
+#print(np.linspace(1,epochs,epochs))
+plt.plot(np.linspace(1,epochs,epochs),loss_acc[:,0])
 
-  return [np.asarray(pairs),targets]
+pred =np.asarray(mypairs)
+print(pred.shape)
+qwi = rng.randint(20)
+pred = pred[:,qwi,:,:,:].reshape(2,105,105,1)
+right =np.asarray(mypairs[1][qwi,:,:]).reshape(1,105,105,1)
+left  =np.asarray(mypairs[0][qwi,:,:]).reshape(1,105,105,1)
 
-size = 200
-train_x_generated = np.zeros((size,105,105))
-train_y_generated = np.zeros((size))
-
-'''print(train_x.shape)
-np.random.choice(train_y[0:200],100,replace=False)
-
-
-print("structed",train_y_structured.shape)
-print("train_y",train_y.shape)
-print(train_y[0:20])
-print(train_y_structured[0,:])'''
-print(train_x.shape,train_y.shape)
-[mypairs,mytargets] = generate_trainset(train_x,train_y,200)
-print(mypairs.shape)
-myidx = 30
-plt.imshow(mypairs[:,myidx,:,:].reshape(2*105,105))
-print(mytargets[myidx])
+print(Siamese.predict([right,left]),"desired:",mytargets[qwi])
+plt.imshow(np.asarray([right,left]).reshape(2*105,105))
