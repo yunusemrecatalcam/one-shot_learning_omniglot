@@ -87,6 +87,49 @@ print(type(out1))
 print(np.sum(out1))
 print(train_y[left],train_y[right])
 
+def generate_trainset(train_x,train_y, size):
+  
+  pairs = [np.zeros((size,105,105)) for i in range(2)]
+  targets = np.zeros((size))
+  
+  print("pairs",np.asarray(pairs).shape,"targets",np.asarray(targets).shape)
+  train_y_structured = train_y.reshape(-1,20)
+  train_x_structured = train_x.reshape(-1,20,105,105)
+  #print("structured x,",train_x_structured.shape)
+  #print("structured y,",train_y_structured.shape)
+  randed = rng.choice(train_y_structured.shape[0],size,replace=False)
+  #print("trainx",train_x_structured[randed].shape,train_x_structured.shape)
+  
+  left = train_x_structured[0,0,:,:]
+  right= train_x_structured[0,0,:,:]
+  for i in range(0,size):
+    if i < size//2:
+      class_of_char = rng.randint(963)
+      print("class same:",class_of_char)
+      left =train_x_structured[class_of_char,rng.randint(19),:,:]
+      right =train_x_structured[class_of_char,rng.randint(19),:,:]
+      pairs[0][i,:,:] = left.reshape(105,105)
+      pairs[1][i,:,:] = right.reshape(105,105)
+      targets[i] = 1
+      
+    else:
+      indexes = rng.choice(963,size=2,replace=False)
+      print("two of em",indexes.shape,indexes)
+      left = train_x_structured[indexes[0],rng.randint(19),:,:]
+      right= train_x_structured[indexes[1],rng.randint(19),:,:]
+      pairs[0][i,:,:] = left.reshape(105,105)
+      pairs[1][i,:,:] = right.reshape(105,105)
+      targets[i] = 0
+      
+  '''both = np.zeros([2,105,105])
+  both[0,:,:] = left.reshape(105,105)
+  both[1,:,:] = right.reshape(105,105)
+  
+  plt.imshow(both.reshape(2*105,105))
+  print(train_y.shape,randed)'''
+
+  return [np.asarray(pairs),targets]
+
 size = 200
 train_x_generated = np.zeros((size,105,105))
 train_y_generated = np.zeros((size))
@@ -100,33 +143,6 @@ print("train_y",train_y.shape)
 print(train_y[0:20])
 print(train_y_structured[0,:])'''
 print(train_x.shape,train_y.shape)
-generate_trainset(train_x,train_y,2)
-
-for i in range(train_y_structured.shape[0]):
-  for k in range(train_y_structured.shape[1]):
-    first = train_y_structured[i,k]
-    #print(train_y_structured[i,k])
-
-def generate_trainset(train_x,train_y, size):
-  train_y_structured = train_y.reshape(-1,20)
-  train_x_structured = train_x.reshape(-1,20,105,105)
-  print("structured x,",train_x_structured.shape)
-  print("structured y,",train_y_structured.shape)
-  randed = rng.choice(train_y_structured.shape[0],size,replace=False)
-  print("trainx",train_x_structured[randed].shape,train_x_structured.shape)
-  
-  left = train_x_structured[0,0,:,:]
-  right= train_x_structured[0,0,:,:]
-  for i in range(0,size):
-    if i < size//2:
-      class_of_char = rng.randint(963)
-      print("class:",class_of_char)
-      left =train_x_structured[class_of_char,rng.randint(19),:,:]
-      right =train_x_structured[class_of_char,rng.randint(19),:,:]
-  
-  both = np.zeros([2,105,105])
-  both[0,:,:] = left.reshape(105,105)
-  both[1,:,:] = right.reshape(105,105)
-  
-  plt.imshow(both.reshape(2*105,105))
-  print(train_y.shape,randed)
+[mypairs,mytargets] = generate_trainset(train_x,train_y,4)
+print(mypairs.shape)
+plt.imshow(mypairs[:,3,:,:].reshape(2*105,105))
