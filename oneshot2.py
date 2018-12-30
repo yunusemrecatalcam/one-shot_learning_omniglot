@@ -103,30 +103,23 @@ def generate_trainset(train_x,train_y, size):
   left = train_x_structured[0,0,:,:]
   right= train_x_structured[0,0,:,:]
   for i in range(0,size):
-    if i < size//2:
+    if i < size//2:                        #getting a same char example
       class_of_char = rng.randint(963)
-      print("class same:",class_of_char)
+      #print("class same:",class_of_char)
       left =train_x_structured[class_of_char,rng.randint(19),:,:]
       right =train_x_structured[class_of_char,rng.randint(19),:,:]
       pairs[0][i,:,:] = left.reshape(105,105)
       pairs[1][i,:,:] = right.reshape(105,105)
       targets[i] = 1
       
-    else:
+    else:                                 #getting a different char example 
       indexes = rng.choice(963,size=2,replace=False)
-      print("two of em",indexes.shape,indexes)
+      #print("two of em",indexes.shape,indexes)
       left = train_x_structured[indexes[0],rng.randint(19),:,:]
       right= train_x_structured[indexes[1],rng.randint(19),:,:]
       pairs[0][i,:,:] = left.reshape(105,105)
       pairs[1][i,:,:] = right.reshape(105,105)
       targets[i] = 0
-      
-  '''both = np.zeros([2,105,105])
-  both[0,:,:] = left.reshape(105,105)
-  both[1,:,:] = right.reshape(105,105)
-  
-  plt.imshow(both.reshape(2*105,105))
-  print(train_y.shape,randed)'''
 
   return [np.asarray(pairs),targets]
 
@@ -143,6 +136,8 @@ print("train_y",train_y.shape)
 print(train_y[0:20])
 print(train_y_structured[0,:])'''
 print(train_x.shape,train_y.shape)
-[mypairs,mytargets] = generate_trainset(train_x,train_y,4)
+[mypairs,mytargets] = generate_trainset(train_x,train_y,200)
 print(mypairs.shape)
-plt.imshow(mypairs[:,3,:,:].reshape(2*105,105))
+myidx = 30
+plt.imshow(mypairs[:,myidx,:,:].reshape(2*105,105))
+print(mytargets[myidx])
